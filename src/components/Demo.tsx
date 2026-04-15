@@ -1,13 +1,10 @@
 "use client";
 
-import { jwtDecode } from "jwt-decode";
-import { useEffect, useCallback, useState, useMemo, type ChangeEvent } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { Input } from "../components/ui/input";
 import sdk, {
   AddMiniApp,
-  ComposeCast,
   MiniAppNotificationDetails,
-  SignIn as SignInCore,
   type Context,
 } from "@farcaster/miniapp-sdk";
 import {
@@ -45,7 +42,6 @@ export default function Demo(
 ) {
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [context, setContext] = useState<Context.MiniAppContext>();
-  const [token, setToken] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const [notificationDetails, setNotificationDetails] =
     useState<MiniAppNotificationDetails | null>(null);
@@ -291,23 +287,23 @@ export default function Demo(
                   label="Star Points"
                   value={starPoints !== null ? starPoints.toLocaleString() : "—"}
                 />
-                {eoaWallets.length > 0 && (
-                  <>
-                    <ContextSeparator />
-                    <ContextRow
-                      label={`EOA Wallet${eoaWallets.length > 1 ? "s" : ""}`}
-                      value={
-                        <div className="flex flex-col gap-0.5">
-                          {eoaWallets.map((wallet) => (
-                            <span key={wallet} className="font-mono text-xs">
-                              {truncateAddress(wallet)}
-                            </span>
-                          ))}
-                        </div>
-                      }
-                    />
-                  </>
-                )}
+                <ContextSeparator />
+                <ContextRow
+                  label={`EOA Wallet${eoaWallets.length > 1 ? "s" : ""}`}
+                  value={
+                    eoaWallets.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {eoaWallets.map((wallet) => (
+                          <span key={wallet} className="font-mono text-xs">
+                            {truncateAddress(wallet)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
               </tbody>
             </table>
           </div>
@@ -315,15 +311,6 @@ export default function Demo(
 
         <div>
           <h2 className="font-2xl font-bold">Actions</h2>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.experimental.quickAuth
-              </pre>
-            </div>
-            <QuickAuth setToken={setToken} token={token} />
-          </div>
 
           <div className="mb-4">
             <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
@@ -337,37 +324,10 @@ export default function Demo(
           <div className="mb-4">
             <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
               <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.composeCast
-              </pre>
-            </div>
-            <ComposeCastAction />
-          </div>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
                 sdk.actions.openUrl
               </pre>
             </div>
             <Button onClick={openUrl}>Open Link</Button>
-          </div>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.viewProfile
-              </pre>
-            </div>
-            <ViewProfile />
-          </div>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.openMiniApp
-              </pre>
-            </div>
-            <OpenMiniApp />
           </div>
 
           <div className="mb-4">
@@ -506,83 +466,6 @@ function ContextSeparator() {
   );
 }
 
-function ComposeCastAction() {
-  const channelOptions = useMemo(
-    () => [
-      { value: "", label: "No channel" },
-      { value: "staging", label: "staging" },
-      { value: "founders", label: "founders" },
-      { value: "bounties", label: "bounties" },
-      { value: "gaming", label: "gaming" },
-    ],
-    [],
-  );
-
-  const [result, setResult] = useState<ComposeCast.Result>();
-  const [error, setError] = useState<string | null>(null);
-  const [channelKey, setChannelKey] = useState<string | undefined>(undefined);
-
-  const handleChannelChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    const { value } = event.target;
-    setChannelKey(value ? value : undefined);
-  }, []);
-
-  const compose = useCallback(async () => {
-    setError(null);
-    setResult(undefined);
-    try {
-      const result = await sdk.actions.composeCast({
-        text: "Hello from Demo Mini App",
-        embeds: ["https://test.com/foo%20bar"],
-        channelKey,
-      });
-      setResult(result);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unknown error occurred while composing cast');
-    }
-  }, [channelKey]);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div>
-        <Label
-          className="text-xs font-semibold text-gray-500 dark:text-gray-300 mb-1"
-          htmlFor="compose-channel-select"
-        >
-          Select channel
-        </Label>
-        <select
-          id="compose-channel-select"
-          value={channelKey ?? ""}
-          onChange={handleChannelChange}
-          className="w-full p-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded"
-        >
-          {channelOptions.map((option) => (
-            <option key={option.value || "none"} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <Button
-        onClick={compose}
-      >
-        Compose Cast
-      </Button>
-      {error && (
-        <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-          {error}
-        </div>
-      )}
-      {result && (
-        <div className="mt-2 text-xs">
-          <div>Cast Hash: {result.cast?.hash}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function SignEthMessage() {
   const { isConnected } = useAccount();
   const { connectAsync } = useConnect();
@@ -673,85 +556,6 @@ function SendEth() {
   );
 }
 
-function QuickAuth({ setToken, token }: { setToken: (token: string | null) => void; token: string | null; }) {
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInFailure, setSignInFailure] = useState<string>();
-
-  const handleSignIn = useCallback(async () => {
-    try {
-      setSigningIn(true);
-      setSignInFailure(undefined);
-
-      const { token } = await sdk.experimental.quickAuth();
-
-      setToken(token);
-
-      // Demonstrate hitting an authed endpoint
-      const response = await fetch('/api/me', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      return;
-    } catch (e) {
-      if (e instanceof SignInCore.RejectedByUser) {
-        setSignInFailure("Rejected by user");
-        return;
-      }
-
-      setSignInFailure("Unknown error");
-    } finally {
-      setSigningIn(false);
-    }
-  }, [setToken]);
-
-  const handleSignOut = useCallback(async () => {
-    setToken(null)
-  }, [setToken]);
-
-  return (
-    <>
-      {status !== "authenticated" && (
-        <Button onClick={handleSignIn} disabled={signingIn}>
-          Sign In
-        </Button>
-      )}
-      {status === "authenticated" && (
-        <Button onClick={handleSignOut}>
-          Sign out
-        </Button>
-      )}
-      {token && (
-        <>
-          <div className="my-2 p-2 text-xs overflow-x-scroll bg-gray-100 dark:bg-gray-800 rounded-lg font-mono">
-            <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">Raw JWT</div>
-            <div className="whitespace-pre">
-              {token}
-            </div>
-          </div>
-          <div className="my-2 p-2 text-xs overflow-x-scroll bg-gray-100 dark:bg-gray-800 rounded-lg font-mono">
-            <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">Decoded JWT</div>
-            <div className="whitespace-pre">
-              {JSON.stringify(jwtDecode(token), undefined, 2)}
-            </div>
-          </div>
-        </>
-      )}
-      {signInFailure && !signingIn && (
-        <div className="my-2 p-2 text-xs overflow-x-scroll bg-gray-100 dark:bg-gray-800 rounded-lg font-mono">
-          <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">SIWF Result</div>
-          <div className="whitespace-pre">{signInFailure}</div>
-        </div>
-      )}
-    </>
-  );
-}
-
 function SignManifest() {
   const [domain, setDomain] = useState('www.microsoft.com')
   const [loading, setLoading] = useState(false)
@@ -817,115 +621,6 @@ function SignManifest() {
       )}
     </div>
   )
-}
-
-function ViewProfile() {
-  const [fid, setFid] = useState("3");
-
-  return (
-    <>
-      <div>
-        <Label
-          className="text-xs font-semibold text-gray-500 dark:text-gray-300 mb-1"
-          htmlFor="view-profile-fid"
-        >
-          Fid
-        </Label>
-        <Input
-          id="view-profile-fid"
-          type="number"
-          value={fid}
-          className="mb-2"
-          onChange={(e) => {
-            setFid(e.target.value);
-          }}
-          step="1"
-          min="1"
-        />
-      </div>
-      <Button
-        onClick={() => {
-          sdk.actions.viewProfile({ fid: parseInt(fid) });
-        }}
-      >
-        View Profile
-      </Button>
-    </>
-  );
-}
-
-function OpenMiniApp() {
-  const [selectedUrl, setSelectedUrl] = useState("");
-  const [openResult, setOpenResult] = useState<string>("");
-  const [isOpening, setIsOpening] = useState(false);
-
-  const urlOptions = [
-    { label: "Select a URL", value: "", disabled: true },
-    {
-      label: "Bountycaster (Embed)",
-      value: "https://www.bountycaster.xyz/bounty/0x392626b092e05955c11c41c5df8e2fb8003ece78"
-    },
-    {
-      label: "Invalid URL",
-      value: "https://swizec.com/"
-    },
-  ];
-
-  const handleOpenMiniApp = useCallback(async () => {
-    if (!selectedUrl) {
-      setOpenResult("Please select a URL");
-      return;
-    }
-
-    setIsOpening(true);
-    setOpenResult("");
-
-    try {
-      await sdk.actions.openMiniApp({url: selectedUrl});
-      setOpenResult("Mini app opened successfully");
-    } catch (error) {
-      setOpenResult(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsOpening(false);
-    }
-  }, [selectedUrl]);
-
-  return (
-    <>
-      <div>
-        <Label
-          className="text-xs font-semibold text-gray-500 dark:text-gray-300 mb-1"
-          htmlFor="mini-app-select"
-        >
-          Select Mini App URL
-        </Label>
-        <select
-          id="mini-app-select"
-          value={selectedUrl}
-          onChange={(e) => setSelectedUrl(e.target.value)}
-          className="w-full mb-2 p-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-700 rounded"
-        >
-          {urlOptions.map(option => (
-            <option key={option.value} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <Button
-        onClick={handleOpenMiniApp}
-        disabled={!selectedUrl || isOpening}
-        isLoading={isOpening}
-      >
-        Open Mini App
-      </Button>
-      {openResult && (
-        <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-          {openResult}
-        </div>
-      )}
-    </>
-  );
 }
 
 const renderError = (error: Error | null) => {

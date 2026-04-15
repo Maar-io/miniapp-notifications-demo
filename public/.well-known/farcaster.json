@@ -1,0 +1,16 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "StartaleApp demo miniapp",
+    "description": "Demo miniapp with all features",
+    "iconUrl": "http://localhost:3000/icon.png",
+    "homeUrl": "http://localhost:3000/",
+    "imageUrl": "http://localhost:3000/preview.png",
+    "buttonTitle": "Launch StartaleApp demo miniapp",
+    "splashImageUrl": "http://localhost:3000/preview.png",
+    "splashBackgroundColor": "#fbbf24",
+    "webhookUrl": "http://localhost:3000/api/webhook",
+    "primaryCategory": "entertainment",
+    "tags": ["nft", "minting", "notifications", "demo", "backend"]
+  }
+}
