@@ -25,16 +25,6 @@ import { BaseError, UserRejectedRequestError } from "viem";
 import { createStore } from "mipd";
 
 
-// Handles JSON stringify with `BigInt` values
-function safeJsonStringify(obj: unknown) {
-  return JSON.stringify(obj, (key, value) => {
-    if (typeof value === 'bigint') {
-      return value.toString();
-    }
-    return value;
-  });
-}
-
 export default function Demo(
   { title }: { title?: string } = { title: "StartaleApp Demo" }
 ) {
@@ -44,7 +34,6 @@ export default function Demo(
   const [notificationDetails, setNotificationDetails] =
     useState<MiniAppNotificationDetails | null>(null);
 
-  const [lastEvent, setLastEvent] = useState("");
   const [eventLog, setEventLog] = useState<Array<{ event: string; timestamp: string }>>([]);
 
   const [addFrameResult, setAddFrameResult] = useState("");
@@ -53,7 +42,6 @@ export default function Demo(
   // Helper to log SDK events
   const logEvent = useCallback((eventName: string) => {
     const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    setLastEvent(eventName);
     setEventLog((prev) => [
       { event: eventName, timestamp },
       ...prev.slice(0, 9), // Keep last 10 events
@@ -213,7 +201,7 @@ export default function Demo(
         sdk.removeAllListeners();
       };
     }
-  }, [isSDKLoaded]);
+  }, [isSDKLoaded, logEvent, address]);
 
   const openUrl = useCallback(() => {
     sdk.actions.openUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
@@ -328,6 +316,7 @@ export default function Demo(
                     <ContextRow
                       label="Avatar"
                       value={
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={pfpUrl}
                           alt={username || "User"}

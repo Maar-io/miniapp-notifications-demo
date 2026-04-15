@@ -8,10 +8,9 @@ import {
   deleteUserNotificationDetails,
   setUserNotificationDetails,
 } from "~/lib/kv";
-import { sendNotification } from "~/lib/notification-service";
 
 // Allow CORS from sandbox
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
@@ -29,15 +28,14 @@ export async function POST(request: NextRequest) {
     "Access-Control-Allow-Headers": "Content-Type, x-api-key",
   };
 
-  const response = new NextResponse(null);
   const requestJson = await request.json();
   console.log("[webhook] Received event:", JSON.stringify(requestJson, null, 2));
 
   let address: string | undefined;
-  let event: any;
+  let event: { event: string; notificationDetails?: { url: string; token: string } } | undefined;
 
   // Check if this is a sandbox webhook (with userAddress) or standard Farcaster webhook
-  const sandboxPayload = requestJson as any;
+  const sandboxPayload = requestJson as Record<string, unknown>;
   if (sandboxPayload.userAddress && sandboxPayload.event && typeof sandboxPayload.event === "string") {
     // Sandbox webhook format (from miniapp-sandbox)
     address = sandboxPayload.userAddress;

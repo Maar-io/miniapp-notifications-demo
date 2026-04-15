@@ -16,12 +16,12 @@ import { MiniAppNotificationDetails } from "@farcaster/miniapp-sdk";
 // In-memory store (development) - keyed by wallet address
 // Use globalThis to persist across hot reloads in development
 const notificationTokens: Map<string, MiniAppNotificationDetails> =
-  (globalThis as any).__notificationTokens ??
+  (globalThis as unknown as { __notificationTokens?: Map<string, MiniAppNotificationDetails> })?.__notificationTokens ??
   new Map<string, MiniAppNotificationDetails>();
 
 // Keep reference on globalThis for hot reload
-if (!((globalThis as any).__notificationTokens)) {
-  (globalThis as any).__notificationTokens = notificationTokens;
+if (!((globalThis as unknown as { __notificationTokens?: Map<string, MiniAppNotificationDetails> })?.__notificationTokens)) {
+  (globalThis as unknown as { __notificationTokens?: Map<string, MiniAppNotificationDetails> }).__notificationTokens = notificationTokens;
 }
 
 // Redis store (uncomment to use with Upstash)

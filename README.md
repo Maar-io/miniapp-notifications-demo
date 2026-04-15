@@ -52,6 +52,25 @@ $ pnpm dev
 - **Send Transaction** – Send ETH transactions with transaction receipt tracking
 - **Sign Typed Data** – Sign EIP-712 typed data with `useSignTypedData()`
 
+## Notifications
+
+### Current Implementation
+The app uses **direct Farcaster notification tokens** for sending push notifications:
+- Tokens are obtained from the SDK when a user adds the mini app
+- Tokens are stored in-memory (with `globalThis` persistence during hot reload)
+- Notifications are sent by posting the token to Farcaster's notification service
+
+### Alternative: Neynar API
+For production deployments, consider using the **Neynar API** instead:
+- Eliminates the need for token storage entirely
+- Neynar manages token lifecycle internally
+- Simpler architecture and fewer hot reload issues
+- Requires `NEYNAR_API_KEY` environment variable
+
+To switch to Neynar, see the commented code in `src/lib/notification-service.ts` for implementation details.
+
+**Note for StartaleApp:** Neynar's standard endpoint uses Farcaster ID (FID), but StartaleApp uses wallet addresses. You may need to map addresses to FIDs or check if Neynar has address-based endpoints.
+
 ## Wallet
 
 This app uses the StartaleApp wallet connector (`startaleConnector()` from `@startale/app-sdk`) on the Soneium chain. The Farcaster miniapp SDK handles the protocol layer.

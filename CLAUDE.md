@@ -20,8 +20,21 @@ This is a demo miniapp for **StartaleApp**, a Farcaster client that runs miniapp
 - Next.js 15 (App Router), TypeScript, React 19, Tailwind CSS
 - Wagmi/Viem with `@startale/app-sdk` connector (Soneium chain)
 - `@farcaster/miniapp-sdk` for miniapp protocol features
-- Upstash Redis for notification storage
+- Upstash Redis for notification storage (optional, see Notifications section)
 - TanStack Query for data fetching
+
+### Notifications Architecture
+**Current:** Direct Farcaster notification tokens
+- Tokens obtained from SDK when miniapp is added
+- Stored in-memory with `globalThis` persistence (survives hot reload in dev)
+- Sent via Farcaster notification service
+- User identifier: **wallet address** (not FID — StartaleApp uses address)
+
+**Alternative for production:** Neynar API
+- Set `NEYNAR_API_KEY` environment variable
+- Neynar manages tokens internally — no storage needed
+- See `src/lib/notification-service.ts` for implementation comments
+- **Note:** Standard Neynar endpoint uses FID; may need address mapping for StartaleApp
 
 ## Farcaster Mini App Compliance Rules
 - Always call `sdk.actions.ready()` immediately after init
