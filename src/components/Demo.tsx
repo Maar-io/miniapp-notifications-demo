@@ -99,12 +99,14 @@ export default function Demo(
       }
 
       sdk.on("miniAppAdded", ({ notificationDetails }) => {
+        console.log("[SDK] miniAppAdded event, notificationDetails:", notificationDetails);
         setLastEvent(
           `miniAppAdded${!!notificationDetails ? ", notifications enabled" : ""}`
         );
 
         setAdded(true);
         if (notificationDetails) {
+          console.log("[SDK] Setting notification details:", notificationDetails);
           setNotificationDetails(notificationDetails);
         }
       });
@@ -171,14 +173,16 @@ export default function Demo(
     try {
       setNotificationDetails(null);
 
-      const result = await sdk.actions.addFrame();
+      const result = await sdk.actions.addMiniApp();
+      console.log("[addFrame] Result from sdk.actions.addMiniApp():", result);
 
       if (result.notificationDetails) {
+        console.log("[addFrame] Got notification details:", result.notificationDetails);
         setNotificationDetails(result.notificationDetails);
       }
       setAddFrameResult(
         result.notificationDetails
-          ? `Added, got notificaton token ${result.notificationDetails.token} and url ${result.notificationDetails.url}`
+          ? `Added, got notification token ${result.notificationDetails.token} and url ${result.notificationDetails.url}`
           : "Added, got no notification details"
       );
     } catch (error) {
@@ -206,7 +210,6 @@ export default function Demo(
         mode: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fid: context.user.fid,
           notificationDetails,
         }),
       });
@@ -336,7 +339,7 @@ export default function Demo(
                 sdk.actions.close
               </pre>
             </div>
-            <Button onClick={close}>Close Frame</Button>
+            <Button onClick={close}>Close Mini App</Button>
           </div>
         </div>
 
@@ -355,7 +358,7 @@ export default function Demo(
 
           <div className="mt-2 mb-4 text-sm">
             Client fid {context?.client.clientFid},
-            {added ? " frame added to client," : " frame not added to client,"}
+            {added ? " mini app added to client," : " mini app not added to client,"}
             {notificationDetails
               ? " notifications enabled"
               : " notifications disabled"}
@@ -364,16 +367,16 @@ export default function Demo(
           <div className="mb-4">
             <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
               <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.addFrame
+                sdk.actions.addMiniApp
               </pre>
             </div>
             {addFrameResult && (
               <div className="mb-2 text-sm">
-                Add frame result: {addFrameResult}
+                Add mini app result: {addFrameResult}
               </div>
             )}
             <Button onClick={addFrame} disabled={added}>
-              Add frame to client
+              Add mini app to client
             </Button>
           </div>
 

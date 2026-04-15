@@ -12,10 +12,12 @@ import { sendFrameNotification } from "~/lib/notifs";
 
 export async function POST(request: NextRequest) {
   const requestJson = await request.json();
+  console.log("[webhook] Received event:", JSON.stringify(requestJson, null, 2));
 
   let data;
   try {
     data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
+    console.log("[webhook] Parsed event data:", JSON.stringify(data, null, 2));
   } catch (e: unknown) {
     const error = e as ParseWebhookEvent.ErrorType;
 

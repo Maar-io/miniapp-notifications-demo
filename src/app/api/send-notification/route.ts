@@ -1,11 +1,9 @@
 import { notificationDetailsSchema } from "@farcaster/miniapp-core";
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { setUserNotificationDetails } from "~/lib/kv";
-import { sendFrameNotification } from "~/lib/notifs";
+import { sendNotificationDirect } from "~/lib/notification-service";
 
 const requestSchema = z.object({
-  fid: z.number(),
   notificationDetails: notificationDetailsSchema,
 });
 
@@ -20,16 +18,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await setUserNotificationDetails(
-    requestBody.data.fid,
-    requestBody.data.notificationDetails
+  const sendResult = await sendNotificationDirect(
+    requestBody.data.notificationDetails,
+    "Test notification",
+    "Sent at " + new Date().toISOString()
   );
-
-  const sendResult = await sendFrameNotification({
-    fid: requestBody.data.fid,
-    title: "Test notification",
-    body: "Sent at " + new Date().toISOString(),
-  });
 
   if (sendResult.state === "error") {
     return Response.json(
