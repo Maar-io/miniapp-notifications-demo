@@ -45,6 +45,12 @@ $ pnpm dev
 - **Send Notification** – Trigger push notifications to the user
 - **Notification Status** – Displays whether notifications are enabled
 
+#### Mini App Lifecycle: `ready()` vs `addMiniApp()`
+- **`ready()`** – Mandatory, called immediately on app load. Hides the splash screen and displays your content. Must be invoked ASAP to avoid showing users an infinite loading screen.
+- **`addMiniApp()`** – Optional, prompts users to add (bookmark) the mini app to their client. Enables quick navigation back and allows the app to send notifications. Can be called multiple times strategically (e.g., after user onboarding or when encouraging notification enablement).
+
+*Note:* The "Add to Client" button in this demo is for testing purposes only. In production, real miniapps won't need this button since users add miniapps directly from StartaleApp before opening them.
+
 ### Ethereum Wallet
 - **Connect/Disconnect** – Manage StartaleApp wallet connection
 - **Display Address & Chain ID** – Shows current wallet and chain (Soneium)
