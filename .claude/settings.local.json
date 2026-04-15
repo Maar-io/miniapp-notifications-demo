@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:miniapps.farcaster.xyz)",
+      "WebFetch(domain:registry.npmjs.org)"
+    ]
+  }
+}

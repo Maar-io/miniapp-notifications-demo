@@ -8,7 +8,7 @@ const frame = {
     title: "Launch haptics",
     action: {
       type: "launch_frame",
-      name: "Farcaster Haptics Demo",
+      name: "StartaleApp Haptics Demo",
       splashImageUrl: `https://frames-v2.vercel.app/splash.png`,
       splashBackgroundColor: "#f7f7f7",
     },
@@ -19,10 +19,10 @@ export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Farcaster Haptics Demo",
+    title: "StartaleApp Haptics Demo",
     openGraph: {
-      title: "Farcaster Haptics Demo",
-      description: "A Farcaster Haptics demo app.",
+      title: "StartaleApp Haptics Demo",
+      description: "A StartaleApp Haptics demo miniapp.",
     },
     other: {
       "fc:frame": JSON.stringify(frame),

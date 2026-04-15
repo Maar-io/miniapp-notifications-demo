@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         await setUserNotificationDetails(fid, event.notificationDetails);
         await sendFrameNotification({
           fid,
-          title: "Welcome to Frames v2",
+          title: "Welcome to StartaleApp",
           body: "Mini app is now added to your client",
         });
       } else {

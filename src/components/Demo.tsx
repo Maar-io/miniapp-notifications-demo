@@ -1,23 +1,6 @@
 "use client";
 
-import {
-  getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
-  createTransferCheckedInstruction,
-  createApproveInstruction,
-} from "@solana/spl-token";
-import {
-  useConnection as useSolanaConnection,
-  useWallet as useSolanaWallet,
-} from '@solana/wallet-adapter-react';
 import { jwtDecode } from "jwt-decode";
-import {
-  PublicKey as SolanaPublicKey,
-  SystemProgram as SolanaSystemProgram,
-  Transaction as SolanaTransaction,
-  VersionedTransaction,
-  TransactionMessage,
-} from "@solana/web3.js";
 import { useEffect, useCallback, useState, useMemo, type ChangeEvent } from "react";
 import { Input } from "../components/ui/input";
 import sdk, {
@@ -35,21 +18,19 @@ import {
   useWaitForTransactionReceipt,
   useDisconnect,
   useConnect,
-  useSwitchChain,
   useChainId,
-  useWalletClient,
 } from "wagmi";
 
 import { config } from "~/components/providers/WagmiProvider";
 import { Button } from "~/components/ui/Button";
 import { truncateAddress } from "~/lib/truncateAddress";
-import { base, degen, mainnet, monadTestnet, optimism, unichain } from "wagmi/chains";
-import { BaseError, parseEther, UserRejectedRequestError, encodeFunctionData, parseAbi } from "viem";
+import { soneium } from "wagmi/chains";
+import { BaseError, UserRejectedRequestError } from "viem";
 import { createStore } from "mipd";
 import { Label } from "~/components/ui/label";
 
 
-// Handles JSON strinify with `BigInt` values
+// Handles JSON stringify with `BigInt` values
 function safeJsonStringify(obj: unknown) {
   return JSON.stringify(obj, (key, value) => {
     if (typeof value === 'bigint') {
@@ -60,14 +41,11 @@ function safeJsonStringify(obj: unknown) {
 }
 
 export default function Demo(
-  { title }: { title?: string } = { title: "Frames v2 Demo" }
+  { title }: { title?: string } = { title: "StartaleApp Demo" }
 ) {
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [context, setContext] = useState<Context.MiniAppContext>();
   const [token, setToken] = useState<string | null>(null);
-  const [isContextOpen, setIsContextOpen] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-
   const [added, setAdded] = useState(false);
   const [notificationDetails, setNotificationDetails] =
     useState<MiniAppNotificationDetails | null>(null);
@@ -77,24 +55,18 @@ export default function Demo(
   const [addFrameResult, setAddFrameResult] = useState("");
   const [sendNotificationResult, setSendNotificationResult] = useState("");
 
+  // StartaleApp-specific context
+  const [starPoints, setStarPoints] = useState<number | null>(null);
+  const [eoaWallets, setEoaWallets] = useState<string[]>([]);
+  const [username, setUsername] = useState<string>("");
+  const [pfpUrl, setPfpUrl] = useState<string>("");
+
   useEffect(() => {
     setNotificationDetails(context?.client.notificationDetails ?? null);
   }, [context]);
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-
-  const {
-    sendTransaction,
-    error: sendTxError,
-    isError: isSendTxError,
-    isPending: isSendTxPending,
-  } = useSendTransaction();
-
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({
-      hash: txHash as `0x${string}`,
-    });
 
   const {
     signTypedData,
@@ -106,36 +78,29 @@ export default function Demo(
   const { disconnect } = useDisconnect();
   const { connect } = useConnect();
 
-  const {
-    switchChain,
-    error: switchChainError,
-    isError: isSwitchChainError,
-    isPending: isSwitchChainPending,
-  } = useSwitchChain();
-
-  const nextChain = useMemo(() => {
-    if (chainId === base.id) {
-      return optimism;
-    } else if (chainId === optimism.id) {
-      return degen;
-    } else if (chainId === degen.id) {
-      return mainnet;
-    } else if (chainId === mainnet.id) {
-      return unichain;
-    } else {
-      return base;
-    }
-  }, [chainId]);
-
-  const handleSwitchChain = useCallback(() => {
-    switchChain({ chainId: nextChain.id });
-  }, [switchChain, nextChain.id]);
-
   useEffect(() => {
     const load = async () => {
       const context = await sdk.context;
       setContext(context);
       setAdded(context.client.added);
+
+      // Read StartaleApp-specific context
+      const ctx = context as {
+        startale?: { starPoints?: number; eoaWallets?: string[] };
+        user?: { username?: string; pfpUrl?: string };
+      };
+      if (ctx?.startale?.starPoints !== undefined) {
+        setStarPoints(ctx.startale.starPoints);
+      }
+      if (ctx?.startale?.eoaWallets) {
+        setEoaWallets(ctx.startale.eoaWallets);
+      }
+      if (ctx?.user?.username) {
+        setUsername(ctx.user.username);
+      }
+      if (ctx?.user?.pfpUrl) {
+        setPfpUrl(ctx.user.pfpUrl);
+      }
 
       sdk.on("miniAppAdded", ({ notificationDetails }) => {
         setLastEvent(
@@ -187,7 +152,6 @@ export default function Demo(
       // Subscribe to the MIPD Store.
       store.subscribe((providerDetails) => {
         console.log("PROVIDER DETAILS", providerDetails);
-        // => [EIP6963ProviderDetail, EIP6963ProviderDetail, ...]
       });
     };
     if (sdk && !isSDKLoaded) {
@@ -201,10 +165,6 @@ export default function Demo(
 
   const openUrl = useCallback(() => {
     sdk.actions.openUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  }, []);
-
-  const openWarpcastUrl = useCallback(() => {
-    sdk.actions.openUrl("https://warpcast.com/~/compose");
   }, []);
 
   const close = useCallback(() => {
@@ -270,26 +230,10 @@ export default function Demo(
     }
   }, [context, notificationDetails]);
 
-  const sendTx = useCallback(() => {
-    sendTransaction(
-      {
-        // call yoink() on Yoink contract
-        to: "0x4bBFD120d9f352A0BEd7a014bd67913a2007a878",
-        data: "0x9846cd9efc000023c0",
-        chainId: monadTestnet.id,
-      },
-      {
-        onSuccess: (hash) => {
-          setTxHash(hash);
-        },
-      }
-    );
-  }, [sendTransaction]);
-
   const signTyped = useCallback(() => {
     signTypedData({
       domain: {
-        name: "Frames v2 Demo",
+        name: "StartaleApp Demo",
         version: "1",
         chainId,
       },
@@ -297,18 +241,11 @@ export default function Demo(
         Message: [{ name: "content", type: "string" }],
       },
       message: {
-        content: "Hello from Frames v2!",
+        content: "Hello from StartaleApp!",
       },
       primaryType: "Message",
     });
   }, [chainId, signTypedData]);
-
-  const toggleContext = useCallback(() => {
-    setIsContextOpen((prev) => !prev);
-  }, []);
-
-  const { publicKey: solanaPublicKey } = useSolanaWallet();
-  const solanaAddress = solanaPublicKey?.toBase58();
 
   if (!isSDKLoaded) {
     return <div>Loading...</div>;
@@ -328,26 +265,52 @@ export default function Demo(
 
         <div className="mb-4">
           <h2 className="font-2xl font-bold">Context</h2>
-          <button
-            onClick={toggleContext}
-            className="flex items-center gap-2 transition-colors"
-          >
-            <span
-              className={`transform transition-transform ${isContextOpen ? "rotate-90" : ""
-                }`}
-            >
-              ➤
-            </span>
-            Tap to expand
-          </button>
-
-          {isContextOpen && (
-            <div className="p-4 mt-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                {safeJsonStringify(context)}
-              </pre>
-            </div>
-          )}
+          <div className="mt-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-3">
+            <table className="w-full border-collapse">
+              <tbody>
+                {username && (
+                  <ContextRow label="Username" value={username} />
+                )}
+                {pfpUrl && (
+                  <>
+                    <ContextSeparator />
+                    <ContextRow
+                      label="Avatar"
+                      value={
+                        <img
+                          src={pfpUrl}
+                          alt={username || "User"}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      }
+                    />
+                  </>
+                )}
+                {(username || pfpUrl) && <ContextSeparator />}
+                <ContextRow
+                  label="Star Points"
+                  value={starPoints !== null ? starPoints.toLocaleString() : "—"}
+                />
+                {eoaWallets.length > 0 && (
+                  <>
+                    <ContextSeparator />
+                    <ContextRow
+                      label={`EOA Wallet${eoaWallets.length > 1 ? "s" : ""}`}
+                      value={
+                        <div className="flex flex-col gap-0.5">
+                          {eoaWallets.map((wallet) => (
+                            <span key={wallet} className="font-mono text-xs">
+                              {truncateAddress(wallet)}
+                            </span>
+                          ))}
+                        </div>
+                      }
+                    />
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div>
@@ -387,15 +350,6 @@ export default function Demo(
               </pre>
             </div>
             <Button onClick={openUrl}>Open Link</Button>
-          </div>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.openUrl
-              </pre>
-            </div>
-            <Button onClick={openWarpcastUrl}>Open Warpcast Link</Button>
           </div>
 
           <div className="mb-4">
@@ -513,29 +467,6 @@ export default function Demo(
               </div>
               <div className="mb-4">
                 <Button
-                  onClick={sendTx}
-                  disabled={!isConnected || isSendTxPending}
-                  isLoading={isSendTxPending}
-                >
-                  Send Transaction (contract)
-                </Button>
-                {isSendTxError && renderError(sendTxError)}
-                {txHash && (
-                  <div className="mt-2 text-xs">
-                    <div>Hash: {truncateAddress(txHash)}</div>
-                    <div>
-                      Status:{" "}
-                      {isConfirming
-                        ? "Confirming..."
-                        : isConfirmed
-                          ? "Confirmed!"
-                          : "Pending"}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="mb-4">
-                <Button
                   onClick={signTyped}
                   disabled={!isConnected || isSignTypedPending}
                   isLoading={isSignTypedPending}
@@ -544,42 +475,34 @@ export default function Demo(
                 </Button>
                 {isSignTypedError && renderError(signTypedError)}
               </div>
-              <div className="mb-4">
-                <Button
-                  onClick={handleSwitchChain}
-                  disabled={isSwitchChainPending}
-                  isLoading={isSwitchChainPending}
-                >
-                  Switch to {nextChain.name}
-                </Button>
-                {isSwitchChainError && renderError(switchChainError)}
-              </div>
-              <div className="mb-4">
-                <TestBatchOperation />
-              </div>
             </>
           )}
         </div>
-
-        {solanaAddress && (
-          <div>
-            <h2 className="font-2xl font-bold">Solana</h2>
-            <div className="my-2 text-xs">
-              Address: <pre className="inline">{truncateAddress(solanaAddress)}</pre>
-            </div>
-            <div className="mb-4">
-              <SignSolanaMessage />
-            </div>
-            <div className="mb-4">
-              <SendSolana />
-            </div>
-            <div className="mb-4">
-              <SendTokenSolana />
-            </div>
-          </div>
-        )}
       </div>
     </div>
+  );
+}
+
+function ContextRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <tr>
+      <td className="text-[11px] text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap py-2 pr-3 align-middle">
+        {label}
+      </td>
+      <td className="text-[13px] py-2 text-right align-middle">
+        {value}
+      </td>
+    </tr>
+  );
+}
+
+function ContextSeparator() {
+  return (
+    <tr>
+      <td colSpan={2} className="p-0">
+        <div className="h-px bg-gray-200 dark:bg-gray-700" />
+      </td>
+    </tr>
   );
 }
 
@@ -674,12 +597,12 @@ function SignEthMessage() {
   const handleSignMessage = useCallback(async () => {
     if (!isConnected) {
       await connectAsync({
-        chainId: base.id,
+        chainId: soneium.id,
         connector: config.connectors[0],
       });
     }
 
-    signMessage({ message: "Hello from Frames v2!" });
+    signMessage({ message: "Hello from StartaleApp!" });
   }, [connectAsync, isConnected, signMessage]);
 
   return (
@@ -702,7 +625,7 @@ function SignEthMessage() {
 }
 
 function SendEth() {
-  const { isConnected, chainId } = useAccount();
+  const { isConnected } = useAccount();
   const {
     sendTransaction,
     data,
@@ -716,19 +639,12 @@ function SendEth() {
       hash: data,
     });
 
-  const toAddr = useMemo(() => {
-    // Protocol guild address
-    return chainId === base.id
-      ? "0x32e3C7fD24e175701A35c224f2238d18439C7dBC"
-      : "0xB3d8d7887693a9852734b4D25e9C0Bb35Ba8a830";
-  }, [chainId]);
-
   const handleSend = useCallback(() => {
     sendTransaction({
-      to: toAddr,
+      to: "0xB3d8d7887693a9852734b4D25e9C0Bb35Ba8a830",
       value: 1n,
     });
-  }, [toAddr, sendTransaction]);
+  }, [sendTransaction]);
 
   return (
     <>
@@ -751,763 +667,6 @@ function SendEth() {
                 ? "Confirmed!"
                 : "Pending"}
           </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function SignSolanaMessage() {
-  const [signature, setSignature] = useState<string | undefined>();
-  const [signError, setSignError] = useState<Error | undefined>();
-  const [signPending, setSignPending] = useState(false);
-
-  const { signMessage } = useSolanaWallet();
-  const handleSignMessage = useCallback(async () => {
-    setSignPending(true);
-    try {
-      if (!signMessage) {
-        throw new Error('no Solana signMessage');
-      }
-      const input = Buffer.from("Hello from Frames v2!", "utf8");
-      const signatureBytes = await signMessage(input);
-      const signature = Buffer.from(signatureBytes).toString("base64");
-      setSignature(signature);
-      setSignError(undefined);
-    } catch (e) {
-      if (e instanceof Error) {
-        setSignError(e);
-      }
-      throw e;
-    } finally {
-      setSignPending(false);
-    }
-  }, [signMessage]);
-
-  return (
-    <>
-      <Button
-        onClick={handleSignMessage}
-        disabled={signPending}
-        isLoading={signPending}
-      >
-        Sign Message
-      </Button>
-      {signError && renderError(signError)}
-      {signature && (
-        <div className="mt-2 text-xs">
-          <div>Signature: {signature}</div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// I am collecting lamports to buy a boat
-const ashoatsPhantomSolanaWallet =
-  'Ao3gLNZAsbrmnusWVqQCPMrcqNi6jdYgu8T6NCoXXQu1';
-
-function SendTokenSolana() {
-  const [state, setState] = useState<
-    | { status: 'none' }
-    | { status: 'pending' }
-    | { status: 'error'; error: Error }
-    | { status: 'success'; signature: string; type: 'send' | 'approve' }
-  >({ status: 'none' });
-
-  const [selectedSymbol, setSelectedSymbol] = useState(''); // Initialize with empty string
-  const [associatedMapping, setAssociatedMapping] = useState<{ token: string, decimals: number } | undefined>(undefined);
-
-  const { publicKey, sendTransaction } = useSolanaWallet();
-  const solanaAddress = publicKey?.toBase58();
-
-  const [destinationAddress, setDestinationAddress] = useState(solanaAddress ?? '');
-  const [simulation, setSimulation] = useState('');
-  const [useVersionedTransaction, setUseVersionedTransaction] = useState(false);
-
-  const tokenOptions = [
-    { label: 'Select a token', value: '', disabled: true }, // Added a disabled default option
-    { label: 'USDC', value: 'USDC' },
-    { label: 'Tether', value: 'Tether' },
-    { label: 'Bonk', value: 'Bonk' },
-    { label: 'GOGS', value: 'GOGS' },
-  ];
-
-  const handleValueChange = (value: string) => {
-    setSelectedSymbol(value);
-    setState({ status: 'none' }); // Reset status when token changes
-    if (!value) {
-      setAssociatedMapping(undefined);
-      return;
-    }
-
-    let valueToSet = '';
-    let decimalsToSet = 0;
-    switch (value) {
-      case 'USDC':
-        valueToSet = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // USDC Mint address
-        decimalsToSet = 6;
-        break;
-      case 'Tether':
-        valueToSet = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
-        decimalsToSet = 6;
-        break;
-      case 'Bonk':
-        valueToSet = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263'
-        decimalsToSet = 5;
-        break;
-      case 'GOGS':
-        valueToSet = 'HxptKywiNbHobJD4XMMBn1czMUGkdMrUkeUErQLKbonk'
-        decimalsToSet = 6;
-        break;
-      default:
-        // It's better to handle this case gracefully, e.g., by clearing the mapping
-        // or simply not setting it if the value is unexpected (though the select should prevent this)
-        console.error('Invalid symbol selected:', value);
-        setAssociatedMapping(undefined);
-        return;
-    }
-    setAssociatedMapping({
-      token: valueToSet,
-      decimals: decimalsToSet,
-    });
-  };
-
-  const { connection: solanaConnection } = useSolanaConnection();
-
-  const handleApprove = useCallback(async () => {
-    if (!publicKey) {
-      throw new Error('no Solana publicKey');
-    }
-
-    if (!selectedSymbol || !associatedMapping) {
-      setState({ status: 'error', error: new Error('Please select a token to approve.') });
-      return;
-    }
-
-    if (!destinationAddress) {
-      setState({ status: 'error', error: new Error('Please enter a destination address.') });
-      return;
-    }
-
-    setState({ status: 'pending' });
-    try {
-      const { blockhash } = await solanaConnection.getLatestBlockhash();
-      if (!blockhash) {
-        throw new Error('Failed to fetch the latest Solana blockhash.');
-      }
-
-      const transaction = new SolanaTransaction();
-
-      const tokenMintPublicKey = new SolanaPublicKey(associatedMapping.token);
-      const spenderPublicKey = new SolanaPublicKey(destinationAddress);
-
-      // Calculate the amount to approve: 1000 tokens in smallest units
-      const amountToApprove = 1000;
-      const amountInSmallestUnit = BigInt(Math.round(amountToApprove * Math.pow(10, associatedMapping.decimals)));
-
-      if (amountInSmallestUnit <= 0) {
-        throw new Error("Calculated token amount to approve is zero or less. Check decimals and amount.");
-      }
-
-      // Get the owner's ATA for the token
-      const ownerAta = await getAssociatedTokenAddress(
-        tokenMintPublicKey,
-        publicKey,
-      );
-
-      // Add the approve instruction
-      transaction.add(
-        createApproveInstruction(
-          ownerAta,             // Token account to approve from
-          spenderPublicKey,     // Account authorized to transfer tokens
-          publicKey,            // Owner of the token account
-          amountInSmallestUnit  // Amount to approve in smallest units
-        )
-      );
-
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new SolanaPublicKey(publicKey);
-
-      let finalTransaction: SolanaTransaction | VersionedTransaction = transaction;
-
-      if (useVersionedTransaction) {
-        // Create a v0 compatible message
-        const messageV0 = new TransactionMessage({
-          payerKey: publicKey,
-          recentBlockhash: blockhash,
-          instructions: transaction.instructions,
-        }).compileToV0Message();
-
-        // Create a new VersionedTransaction
-        finalTransaction = new VersionedTransaction(messageV0);
-        console.log('Created versioned transaction for approval');
-      }
-
-      console.log('Simulating approval transaction:', finalTransaction);
-      const signature = await sendTransaction(
-        finalTransaction,
-        solanaConnection,
-      );
-      setState({ status: 'success', signature, type: 'approve' });
-      console.log('Approval transaction successful, signature:', signature);
-
-    } catch (e) {
-      console.error("Approval transaction failed:", e);
-      if (e instanceof Error) {
-        setState({ status: 'error', error: e });
-      } else {
-        setState({ status: 'error', error: new Error(String(e)) });
-      }
-    }
-  }, [
-    publicKey,
-    sendTransaction,
-    selectedSymbol,
-    associatedMapping,
-    destinationAddress,
-    useVersionedTransaction,
-    solanaConnection,
-  ])
-
-  const handleSend = useCallback(async () => {
-    if (!publicKey) {
-      throw new Error('no Solana publicKey');
-    }
-
-    if (!selectedSymbol || !associatedMapping) {
-      setState({ status: 'error', error: new Error('Please select a token to send.') });
-      return;
-    }
-
-    setState({ status: 'pending' });
-    try {
-      const { blockhash } = await solanaConnection.getLatestBlockhash();
-      if (!blockhash) {
-        throw new Error('Failed to fetch the latest Solana blockhash.');
-      }
-
-      const transaction = new SolanaTransaction();
-
-      const tokenMintPublicKey = new SolanaPublicKey(associatedMapping.token);
-      const recipientPublicKey = new SolanaPublicKey(destinationAddress);
-
-      // Calculate the amount in the smallest unit of the token
-      // Sending 0.1 of the token
-      const amountToSend = 0.1;
-      const amountInSmallestUnit = BigInt(Math.round(amountToSend * Math.pow(10, associatedMapping.decimals)));
-
-      if (amountInSmallestUnit <= 0) {
-        throw new Error("Calculated token amount to send is zero or less. Check decimals and amount.");
-      }
-
-      // 1. Get the sender's ATA for the token
-      const fromAta = await getAssociatedTokenAddress(
-        tokenMintPublicKey,
-        publicKey,
-      );
-
-      // 2. Get the recipient's ATA for the token
-      const toAta = await getAssociatedTokenAddress(
-        tokenMintPublicKey,
-        recipientPublicKey,
-      );
-
-      // 3. Check if the recipient's ATA exists. If not, add an instruction to create it.
-      const toAtaAccountInfo = await solanaConnection.getAccountInfo(toAta);
-      if (!toAtaAccountInfo) {
-        console.log(`Recipient's Associated Token Account (${toAta.toBase58()}) for ${selectedSymbol} does not exist. Creating it.`);
-        transaction.add(
-          createAssociatedTokenAccountInstruction(
-            publicKey,
-            toAta,
-            recipientPublicKey,
-            tokenMintPublicKey
-            // TOKEN_PROGRAM_ID and ASSOCIATED_TOKEN_PROGRAM_ID are often defaulted by the library
-          )
-        );
-      }
-
-      // 4. Add the token transfer instruction
-      transaction.add(
-        createTransferCheckedInstruction(
-          fromAta,                // Source_associated_token_account
-          tokenMintPublicKey,     // Token mint_address
-          toAta,                  // Destination_associated_token_account
-          publicKey,              // Wallet address of the owner of the source account
-          amountInSmallestUnit,   // Amount, in smallest units (e.g., lamports for SOL, or smallest unit for the token)
-          associatedMapping.decimals // Decimals of the token (for validation)
-          // [],                  // Optional: multiSigners
-          // TOKEN_PROGRAM_ID     // Optional: SPL Token program ID, defaults correctly in recent library versions
-        )
-      );
-
-      // This is a SOL transfer, not a token transfer.
-      // To send SPL tokens, you'd use Token.createTransferInstruction from @solana/spl-token
-      // and need the sender's token account address and the recipient's token account address.
-      // The current code sends 0.000000001 SOL (1 lamport).
-      // If you intend to send SPL tokens (USDC, $TRUMP), this part needs to be changed significantly.
-
-      // For now, I'll keep the SOL transfer as in your original code,
-      // but highlight that this doesn't use the selected `associatedMapping` for token details.
-      // To send the selected token, you would use associatedMapping.token (mint address)
-      // and associatedMapping.decimals.
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new SolanaPublicKey(publicKey);
-
-      let finalTransaction: SolanaTransaction | VersionedTransaction = transaction;
-
-      if (useVersionedTransaction) {
-        // Create a v0 compatible message
-        const messageV0 = new TransactionMessage({
-          payerKey: publicKey,
-          recentBlockhash: blockhash,
-          instructions: transaction.instructions,
-        }).compileToV0Message();
-
-        // Create a new VersionedTransaction
-        finalTransaction = new VersionedTransaction(messageV0);
-        console.log('Created versioned transaction');
-      }
-
-      console.log('Simulating transaction:', finalTransaction);
-      const simulation = await solanaConnection.simulateTransaction(
-        finalTransaction as VersionedTransaction
-      );
-      setSimulation(JSON.stringify(simulation.value));
-
-      const signature = await sendTransaction(
-        finalTransaction,
-        solanaConnection,
-      );
-      setState({ status: 'success', signature, type: 'send' });
-      console.log('Transaction successful, signature:', signature);
-
-    } catch (e) {
-      console.error("Transaction failed:", e);
-      if (e instanceof Error) {
-        setState({ status: 'error', error: e });
-      } else {
-        // Handle cases where e is not an Error instance (e.g., string or object)
-        setState({ status: 'error', error: new Error(String(e)) });
-      }
-      // Removed `throw e;` as it might cause unhandled promise rejection if not caught upstream.
-      // The state update is usually sufficient for UI feedback.
-    }
-  }, [
-    publicKey,
-    sendTransaction,
-    selectedSymbol,
-    associatedMapping,
-    destinationAddress,
-    useVersionedTransaction,
-    solanaConnection,
-  ]);
-
-  return (
-    <div className="p-4 max-w-md mx-auto space-y-4"> {/* Added some basic styling for layout */}
-      <h2 className="text-xl font-semibold">Send Solana Transaction</h2>
-
-      <div>
-        <label htmlFor="destination-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Destination Address
-        </label>
-        <input
-          type="text"
-          id="destination-address"
-          value={destinationAddress}
-          onChange={(e) => setDestinationAddress(e.target.value)}
-          className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-        />
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="use-versioned"
-          checked={useVersionedTransaction}
-          onChange={(e) => setUseVersionedTransaction(e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded bg-white dark:bg-gray-900"
-        />
-        <label htmlFor="use-versioned" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Use Versioned Transaction
-        </label>
-      </div>
-
-      <div>
-        <label htmlFor="token-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Select Token
-        </label>
-        <select
-          value={selectedSymbol}
-          onChange={(e) => handleValueChange(e.target.value)}
-          className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-        >
-          {tokenOptions.map(option => (
-            <option key={option.value} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex gap-2">
-        <Button
-          onClick={handleSend}
-          disabled={state.status === 'pending' || !selectedSymbol} // Disable if no token selected or pending
-          isLoading={state.status === 'pending'}
-          className="flex-1" // Make button share width equally
-        >
-          Send Token {selectedSymbol ? `(0.1 ${selectedSymbol})` : ''}
-        </Button>
-
-        <Button
-          onClick={handleApprove}
-          disabled={state.status === 'pending' || !selectedSymbol} // Disable if no token selected or pending
-          isLoading={state.status === 'pending'}
-          className="flex-1" // Make button share width equally
-        >
-          Approve {selectedSymbol ? `(1000 ${selectedSymbol})` : ''}
-        </Button>
-      </div>
-
-      {state.status === 'none' && !selectedSymbol && (
-        <div className="mt-2 text-xs text-gray-500">Please select a token.</div>
-      )}
-      {state.status === 'error' && renderError(state.error)}
-      {state.status === 'success' && (
-        <div className="mt-2 text-xs p-2 bg-green-50 border border-green-200 rounded">
-          <div className="font-semibold text-green-700">
-            {state.type === 'approve' ? 'Approval' : 'Send'} Transaction Successful!
-          </div>
-          <div>Signature: <a href={`https://explorer.solana.com/tx/${state.signature}?cluster=devnet`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{truncateAddress(state.signature)}</a></div>
-        </div>
-      )}
-      {simulation && (
-        <div className="mt-2 text-xs p-2 bg-green-50 border border-green-200 rounded">
-          <div className="font-semibold text-green-700">Simulation Result:</div>
-          <div>{simulation}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TestBatchOperation() {
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const [capabilities, setCapabilities] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [forceAtomic, setForceAtomic] = useState(false);
-  const [isGettingCapabilities, setIsGettingCapabilities] = useState(false);
-  const [isSendingCalls, setIsSendingCalls] = useState(false);
-  const { switchChain } = useSwitchChain();
-
-  const [batchCallId, setBatchCallId] = useState<string | null>(null);
-  const [batchCallResult, setBatchCallResult] = useState<string | null>(null);
-
-  // State for explicit USDC approve + MockTransfer.mockTransfer test (non-atomic)
-  const [isSendingApproveTransfer, setIsSendingApproveTransfer] = useState(false);
-  const [approveTransferId, setApproveTransferId] = useState<string | null>(null);
-  const [approveTransferResult, setApproveTransferResult] = useState<string | null>(null);
-  const [approveTransferError, setApproveTransferError] = useState<string | null>(null);
-
-  const handleGetCapabilities = useCallback(async () => {
-    if (!walletClient || !address) {
-      setError('No wallet client or address');
-      return;
-    }
-    
-    setIsGettingCapabilities(true);
-    setError(null);
-    
-    try {
-      const capabilities = await walletClient.getCapabilities({
-        account: address,
-      });
-      if (!capabilities) {
-        setError('No capabilities found');
-      } else {
-        setCapabilities(JSON.stringify(capabilities, null, 2));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setIsGettingCapabilities(false);
-    }
-  }, [walletClient, address]);
-
-  const handleSendCalls = useCallback(async () => {
-    if (!walletClient || !address) {
-      setError('No wallet client or address');
-      return;
-    }
-    switchChain({ chainId: base.id });
-    
-    setIsSendingCalls(true);
-    setError(null);
-    setBatchCallId(null);
-    setBatchCallResult(null);
-    
-    try {
-      const { id } = await walletClient.sendCalls({ 
-        account: address,
-        forceAtomic,
-        chain: base,
-        calls: [
-          {
-            to: '0x729170d38dd5449604f35f349fdfcc9ad08257cd',
-            value: parseEther('0.00002')
-          },
-          {
-            to: '0xf4319842934025823b461db1fa545d144833e84e',
-            value: parseEther('0.00002')
-          },
-          {
-            to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-            value: parseEther('0'),
-            data: '0xa9059cbb000000000000000000000000729170d38dd5449604f35f349fdfcc9ad08257cd0000000000000000000000000000000000000000000000000000000000002710'
-          },
-        ],
-      });
-      setBatchCallId(id);
-      
-      const result = await walletClient.waitForCallsStatus({
-        id,
-        pollingInterval: 200,
-      });
-      console.log('result', result);
-      setBatchCallResult(safeJsonStringify(result));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setIsSendingCalls(false);
-    }
-  }, [walletClient, address, forceAtomic, switchChain]);
-
-  const handleSendCallsApproveAndTransfer = useCallback(async () => {
-    if (!walletClient || !address) {
-      setApproveTransferError('No wallet client or address');
-      return;
-    }
-    // Ensure we are on Base for this test
-    switchChain({ chainId: base.id });
-
-    setIsSendingApproveTransfer(true);
-    setApproveTransferError(null);
-    setApproveTransferId(null);
-    setApproveTransferResult(null);
-
-    try {
-      const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-      const MOCK_TRANSFER = '0xDC5A772d22558524cbBbfa8Ba6E83b5BebE45783';
-      const TEN_CENTS_USDC = 100_000n; // 0.10 USDC with 6 decimals
-
-      const approveData = encodeFunctionData({
-        abi: parseAbi(['function approve(address spender, uint256 value) returns (bool)']),
-        functionName: 'approve',
-        args: [MOCK_TRANSFER, TEN_CENTS_USDC],
-      });
-
-      const mockTransferData = encodeFunctionData({
-        abi: parseAbi(['function mockTransfer(uint256 amount)']),
-        functionName: 'mockTransfer',
-        args: [TEN_CENTS_USDC],
-      });
-
-      const { id } = await walletClient.sendCalls({
-        account: address,
-        chain: base,
-        // Explicitly non-atomic per request
-        forceAtomic: false,
-        calls: [
-          { to: BASE_USDC, value: 0n, data: approveData },
-          { to: MOCK_TRANSFER, value: 0n, data: mockTransferData },
-        ],
-      });
-
-      setApproveTransferId(id);
-
-      const result = await walletClient.waitForCallsStatus({
-        id,
-        pollingInterval: 200,
-      });
-      setApproveTransferResult(safeJsonStringify(result));
-    } catch (e) {
-      setApproveTransferError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setIsSendingApproveTransfer(false);
-    }
-  }, [walletClient, address, switchChain]);
-
-  return (
-    <>
-      <div className="mb-4">
-        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-          <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-            wallet.getCapabilities / wallet.sendCalls
-          </pre>
-        </div>
-        
-        <div className="mb-4">
-          <Button 
-            onClick={handleGetCapabilities}
-            disabled={!isConnected || isGettingCapabilities}
-            isLoading={isGettingCapabilities}
-          >
-            Get Capabilities
-          </Button>
-          
-          {capabilities && (
-            <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">Capabilities</div>
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                {capabilities}
-              </pre>
-            </div>
-          )}
-        </div>
-
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <input
-              type="checkbox"
-              id="force-atomic"
-              checked={forceAtomic}
-              onChange={(e) => setForceAtomic(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="force-atomic" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Force Atomic
-            </label>
-          </div>
-          
-          <Button 
-            onClick={handleSendCalls}
-            disabled={!isConnected || isSendingCalls}
-            isLoading={isSendingCalls}
-          >
-            Send Batch Calls
-          </Button>
-        </div>
-
-        <div className="mb-4">
-          <Button
-            onClick={handleSendCallsApproveAndTransfer}
-            disabled={!isConnected || isSendingApproveTransfer}
-            isLoading={isSendingApproveTransfer}
-          >
-            SendCalls: Approve 10c USDC + mockTransfer (This will take 10c in USDC, use at your own discression)
-          </Button>
-        </div>
-
-        {batchCallId && (
-          <div className="mb-2 text-xs">
-            Batch Call ID: {batchCallId}
-          </div>
-        )}
-
-        {batchCallResult && (
-          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">Batch Call Result</div>
-            <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-              {batchCallResult}
-            </pre>
-          </div>
-        )}
-
-        {error && (
-          <div className="text-red-500 text-xs mt-1">{error}</div>
-        )}
-
-        {approveTransferId && (
-          <div className="mb-2 text-xs">
-            Approve + Transfer ID: {approveTransferId}
-          </div>
-        )}
-
-        {approveTransferResult && (
-          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <div className="font-semibold text-gray-500 dark:text-gray-300 mb-1">Approve + Transfer Result</div>
-            <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-              {approveTransferResult}
-            </pre>
-          </div>
-        )}
-
-        {approveTransferError && (
-          <div className="text-red-500 text-xs mt-1">{approveTransferError}</div>
-        )}
-      </div>
-    </>
-  );
-}
-
-function SendSolana() {
-  const [state, setState] = useState<
-    | { status: 'none' }
-    | { status: 'pending' }
-    | { status: 'error'; error: Error }
-    | { status: 'success'; signature: string }
-  >({ status: 'none' });
-
-  const { connection: solanaConnection } = useSolanaConnection();
-  const { sendTransaction, publicKey } = useSolanaWallet();
-
-  const handleSend = useCallback(async () => {
-    setState({ status: 'pending' });
-    try {
-      if (!publicKey) {
-        throw new Error('no Solana publicKey');
-      }
-
-      const { blockhash } = await solanaConnection.getLatestBlockhash();
-      if (!blockhash) {
-        throw new Error('failed to fetch latest Solana blockhash');
-      }
-
-      const transaction = new SolanaTransaction();
-      transaction.add(
-        SolanaSystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new SolanaPublicKey(ashoatsPhantomSolanaWallet),
-          lamports: 1n,
-        }),
-      );
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = publicKey;
-
-      const simulation =
-        await solanaConnection.simulateTransaction(transaction);
-      if (simulation.value.err) {
-        throw new Error('Simulation failed');
-      }
-
-      const signature = await sendTransaction(transaction, solanaConnection);
-      setState({ status: 'success', signature });
-    } catch (e) {
-      if (e instanceof Error) {
-        setState({ status: 'error', error: e });
-      } else {
-        setState({ status: 'none' });
-      }
-      throw e;
-    }
-  }, [sendTransaction, publicKey, solanaConnection]);
-
-  return (
-    <>
-      <Button
-        onClick={handleSend}
-        disabled={state.status === 'pending'}
-        isLoading={state.status === 'pending'}
-      >
-        Send Transaction
-      </Button>
-      {state.status === 'error' && renderError(state.error)}
-      {state.status === 'success' && (
-        <div className="mt-2 text-xs">
-          <div>Hash: {truncateAddress(state.signature)}</div>
         </div>
       )}
     </>
@@ -1702,17 +861,13 @@ function OpenMiniApp() {
 
   const urlOptions = [
     { label: "Select a URL", value: "", disabled: true },
-    { 
-      label: "Bountycaster (Embed)", 
-      value: "https://www.bountycaster.xyz/bounty/0x392626b092e05955c11c41c5df8e2fb8003ece78" 
+    {
+      label: "Bountycaster (Embed)",
+      value: "https://www.bountycaster.xyz/bounty/0x392626b092e05955c11c41c5df8e2fb8003ece78"
     },
-    { 
-      label: "Eggs (Launcher)", 
-      value: "https://farcaster.xyz/miniapps/Qqjy9efZ-1Qu/eggs" 
-    },
-    { 
-      label: "Invalid URL", 
-      value: "https://swizec.com/" 
+    {
+      label: "Invalid URL",
+      value: "https://swizec.com/"
     },
   ];
 
