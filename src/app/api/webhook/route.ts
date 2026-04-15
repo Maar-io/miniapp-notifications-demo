@@ -8,7 +8,7 @@ import {
   deleteUserNotificationDetails,
   setUserNotificationDetails,
 } from "~/lib/kv";
-import { sendFrameNotification } from "~/lib/notifs";
+import { sendNotification } from "~/lib/notification-service";
 
 export async function POST(request: NextRequest) {
   const requestJson = await request.json();
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
     console.log("[webhook] Parsed event data:", JSON.stringify(data, null, 2));
+    console.log("[webhook] Available identifiers - fid:", data.fid, "address:", (data as any).address);
   } catch (e: unknown) {
     const error = e as ParseWebhookEvent.ErrorType;
 
@@ -47,15 +48,17 @@ export async function POST(request: NextRequest) {
   const fid = data.fid;
   const event = data.event;
 
+  console.log(`[webhook] Processing event for FID ${fid}:`, event.event);
+
   switch (event.event) {
     case "miniapp_added":
       if (event.notificationDetails) {
         await setUserNotificationDetails(fid, event.notificationDetails);
-        await sendFrameNotification({
+        await sendNotification(
           fid,
-          title: "Welcome to StartaleApp",
-          body: "Mini app is now added to your client",
-        });
+          "Welcome to StartaleApp",
+          "Mini app is now added to your client"
+        );
       } else {
         await deleteUserNotificationDetails(fid);
       }
@@ -67,11 +70,11 @@ export async function POST(request: NextRequest) {
       break;
     case "notifications_enabled":
       await setUserNotificationDetails(fid, event.notificationDetails);
-      await sendFrameNotification({
+      await sendNotification(
         fid,
-        title: "Ding ding ding",
-        body: "Notifications are now enabled",
-      });
+        "Ding ding ding",
+        "Notifications are now enabled"
+      );
 
       break;
     case "notifications_disabled":
