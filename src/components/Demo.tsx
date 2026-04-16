@@ -307,8 +307,10 @@ export default function Demo(
           <div className="mb-4">
             <h2 className="font-2xl font-bold">Connected Account</h2>
             <div className="my-2 text-xs">
-              Smart Account: <pre className="inline">{truncateAddress(address)}</pre>
             </div>
+              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[200px] overflow-x-">
+                Smart Account: <pre className="inline">{truncateAddress(address)}</pre>
+            </pre>
           </div>
         )}
 
