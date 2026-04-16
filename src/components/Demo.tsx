@@ -89,6 +89,7 @@ export default function Demo(
 
   const {
     signTypedData,
+    data: signTypedSignature,
     error: signTypedError,
     isError: isSignTypedError,
     isPending: isSignTypedPending,
@@ -302,8 +303,22 @@ export default function Demo(
       <div className="w-[300px] mx-auto py-2 px-2">
         <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
 
+        {address && (
+          <div className="mb-4">
+            <h2 className="font-2xl font-bold">Connected Account</h2>
+            <div className="my-2 text-xs">
+              Smart Account: <pre className="inline">{truncateAddress(address)}</pre>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4">
           <h2 className="font-2xl font-bold">Context</h2>
+          <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
+            <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[200px] overflow-x-">
+              sdk.context
+            </pre>
+          </div>
           <div className="mt-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-3">
             <table className="w-full border-collapse">
               <tbody>
@@ -350,28 +365,6 @@ export default function Demo(
                 />
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="font-2xl font-bold">Actions</h2>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.openUrl
-              </pre>
-            </div>
-            <Button onClick={openUrl}>Open Link</Button>
-          </div>
-
-          <div className="mb-4">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
-              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
-                sdk.actions.close
-              </pre>
-            </div>
-            <Button onClick={close}>Close Mini App</Button>
           </div>
         </div>
 
@@ -482,10 +475,38 @@ export default function Demo(
                   Sign Typed Data
                 </Button>
                 {isSignTypedError && renderError(signTypedError)}
+                {signTypedSignature && (
+                  <div className="mt-2 text-xs">
+                    <div>Signature: {signTypedSignature}</div>
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
+
+                <div>
+          <h2 className="font-2xl font-bold">Actions</h2>
+
+          <div className="mb-4">
+            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
+              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
+                sdk.actions.openUrl
+              </pre>
+            </div>
+            <Button onClick={openUrl}>Open Link</Button>
+          </div>
+
+          <div className="mb-4">
+            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg my-2">
+              <pre className="font-mono text-xs whitespace-pre-wrap break-words max-w-[260px] overflow-x-">
+                sdk.actions.close
+              </pre>
+            </div>
+            <Button onClick={close}>Close Mini App</Button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -497,8 +518,8 @@ function ContextRow({ label, value }: { label: string; value: React.ReactNode })
       <td className="text-[11px] text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap py-2 pr-3 align-middle">
         {label}
       </td>
-      <td className="text-[13px] py-2 text-right align-middle">
-        {value}
+      <td className="text-[13px] py-2 align-middle">
+        <div className="flex justify-end">{value}</div>
       </td>
     </tr>
   );
