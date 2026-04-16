@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:leafy-biscotti-4e9fc8.netlify.app)"
+    ]
+  }
+}

@@ -3,14 +3,14 @@
     "version": "1",
     "name": "StartaleApp demo miniapp",
     "description": "Demo miniapp with all features",
-    "iconUrl": "http://localhost:3000/icon.png",
-    "homeUrl": "http://localhost:3000/",
-    "imageUrl": "http://localhost:3000/preview.png",
+    "iconUrl": "https://leafy-biscotti-4e9fc8.netlify.app/icon.png",
+    "homeUrl": "https://leafy-biscotti-4e9fc8.netlify.app/",
+    "imageUrl": "https://leafy-biscotti-4e9fc8.netlify.app/preview.png",
     "buttonTitle": "Launch StartaleApp demo miniapp",
-    "splashImageUrl": "http://localhost:3000/preview.png",
+    "splashImageUrl": "https://leafy-biscotti-4e9fc8.netlify.app/preview.png",
     "splashBackgroundColor": "#fbbf24",
-    "webhookUrl": "http://localhost:3000/api/webhook",
-    "primaryCategory": "entertainment",
-    "tags": ["nft", "minting", "notifications", "demo", "backend"]
+    "webhookUrl": "https://leafy-biscotti-4e9fc8.netlify.app/api/webhook",
+    "primaryCategory": "demo",
+    "tags": ["notifications", "demo", "backend"]
   }
 }
