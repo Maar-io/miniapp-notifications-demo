@@ -82,5 +82,17 @@ export async function POST(request: NextRequest) {
 
   console.log(`[DEMO-MINIAPP-webhook] Acknowledged event for address ${address}:`, event.event);
 
+  if (event.notificationDetails) {
+    console.log(
+      `[DEMO-MINIAPP-webhook] Received notificationDetails for ${address}, event=${event.event}. ` +
+        `NOTE: real miniapps must persist this server-side; this demo does not — tokens live only in the originating browser's localStorage.`,
+      event.notificationDetails
+    );
+  } else {
+    console.log(
+      `[DEMO-MINIAPP-webhook] Event ${event.event} for ${address} carried no notificationDetails (e.g. miniapp_removed / notifications_disabled)`
+    );
+  }
+
   return Response.json({ success: true }, { headers: corsHeaders });
 }

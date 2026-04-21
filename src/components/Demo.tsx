@@ -84,14 +84,21 @@ export default function Demo(
   useEffect(() => {
     const fromContext = context?.client.notificationDetails ?? null;
     if (fromContext) {
+      console.log("[DEMO-MINIAPP] notificationDetails source=context", fromContext);
       setNotificationDetails(fromContext);
       return;
     }
     if (address) {
       const stored = readStoredDetails(address);
       if (stored) {
+        console.log("[DEMO-MINIAPP] notificationDetails source=localStorage", { address, stored });
         setNotificationDetails(stored);
         setAdded(true);
+      } else if (context) {
+        console.log("[DEMO-MINIAPP] notificationDetails not available from context or localStorage", {
+          address,
+          clientAdded: context.client.added,
+        });
       }
     }
   }, [context, address]);
@@ -132,14 +139,16 @@ export default function Demo(
       }
 
       sdk.on("miniAppAdded", ({ notificationDetails }) => {
-        console.log("[DEMO-MINIAPP] miniAppAdded event, notificationDetails:", notificationDetails);
+        console.log("[DEMO-MINIAPP] event=miniAppAdded notificationDetails source=sdk-event", notificationDetails);
         logEvent(`miniAppAdded${!!notificationDetails ? " (notifications enabled)" : ""}`);
 
         setAdded(true);
         if (notificationDetails) {
-          console.log("[DEMO-MINIAPP] Setting notification details:", notificationDetails);
+          console.log("[DEMO-MINIAPP] Setting notification details from miniAppAdded:", notificationDetails);
           setNotificationDetails(notificationDetails);
           if (address) writeStoredDetails(address, notificationDetails);
+        } else {
+          console.warn("[DEMO-MINIAPP] miniAppAdded fired WITHOUT notificationDetails — waiting for notificationsEnabled or webhook");
         }
       });
 
@@ -155,6 +164,7 @@ export default function Demo(
       });
 
       sdk.on("notificationsEnabled", ({ notificationDetails }) => {
+        console.log("[DEMO-MINIAPP] event=notificationsEnabled notificationDetails source=sdk-event", notificationDetails);
         logEvent("notificationsEnabled");
         setNotificationDetails(notificationDetails);
         if (address) writeStoredDetails(address, notificationDetails);
@@ -212,13 +222,16 @@ export default function Demo(
     try {
       setNotificationDetails(null);
 
+      console.log("[DEMO-MINIAPP-addFrame] Calling sdk.actions.addMiniApp()...");
       const result = await sdk.actions.addMiniApp();
       console.log("[DEMO-MINIAPP-addFrame] Result from sdk.actions.addMiniApp():", result);
 
       if (result.notificationDetails) {
-        console.log("[DEMO-MINIAPP-addFrame] Got notification details:", result.notificationDetails);
+        console.log("[DEMO-MINIAPP-addFrame] notificationDetails source=addMiniApp-return", result.notificationDetails);
         setNotificationDetails(result.notificationDetails);
         if (address) writeStoredDetails(address, result.notificationDetails);
+      } else {
+        console.warn("[DEMO-MINIAPP-addFrame] addMiniApp() returned WITHOUT notificationDetails — miniapp still functions, but notifications will only work if host delivers token via miniAppAdded/notificationsEnabled event, webhook, or sdk.context on next load");
       }
       setAddFrameResult(
         result.notificationDetails
